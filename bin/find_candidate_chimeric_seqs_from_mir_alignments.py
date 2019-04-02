@@ -11,8 +11,13 @@ import argparse
 
 def get_reference_seq_from_query(row):
     """
-    From a bowtie standard output row, return the reference sequence. Bowtie outputs are
-    formatted as follows:
+    From a bowtie standard output row, return the reference (read) sequence. 
+    
+    For eCLASH, 
+     reference = read
+     query = miR
+     
+    Bowtie outputs are formatted as follows:
     1.  Read name
     2.  Reference strand aligned to
     3.  Name of reference sequence where alignment occurs
@@ -58,7 +63,7 @@ def get_reference_seq_from_query(row):
 
 def get_rnames_and_rseq_fragments_from_bowtie_output(fn):
     """
-    From a bowtie output tsv file, return the reference sequence
+    From a bowtie output tsv file, return the reference (read) sequence 
     and strand as a dictionary, with the reference name as key.
     That means duplicate reference names will be collapsed into one.
 
@@ -72,8 +77,8 @@ def get_rnames_and_rseq_fragments_from_bowtie_output(fn):
         determining how many miRs aligned to each (read->miR is many-to-many,
         we are turning that into one-to-many).
     """
-    rnames = defaultdict(dict)
-    metrics = defaultdict(int)
+    rnames = defaultdict(dict) # {readname:{fragment:read fragment, strand:read strand, mir:miRNA name}}
+    metrics = defaultdict(int) # {readname:number of miRs aligned to the read}
 
     with open(fn, 'r') as f:
         for line in f:
@@ -117,8 +122,8 @@ def get_name2seq_dict(fa_file, rnames):
     """
 
     counter = 0 # if it's a very large fasta file, need to measure
-    name2seq_dict = defaultdict(dict)
-    seq2name_dict = defaultdict(str)
+    name2seq_dict = defaultdict(dict) # every {read:sequence}
+    seq2name_dict = defaultdict(str) # every {sequence:read}
     read_names = set(rnames.keys())
     handle = open(fa_file, "rU")
     for record in SeqIO.parse(handle, "fasta"):
@@ -288,6 +293,7 @@ def main():
     # main func
     rnames, metrics1 = get_rnames_and_rseq_fragments_from_bowtie_output(fn=bowtie_align)
     name2seq_dict, seq2name_dict = get_name2seq_dict(fa_file=fa_file, rnames=rnames)
+    
     all_name2seq_dict = add_all_sequences_to_name2seq_dictionary(
         fa_file=fa_file,
         name2seq_dict=name2seq_dict,
