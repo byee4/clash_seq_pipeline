@@ -42,12 +42,13 @@ inputs:
       prefix: --verbose
     doc: verbose output (for debugging)
   sam:
-    type: boolean?
+    type: boolean
     inputBinding:
       position: 1
       prefix: -S
     doc: |
       --sam           write hits in SAM format
+    default: true
   col-cseq:
     type: boolean?
     inputBinding:

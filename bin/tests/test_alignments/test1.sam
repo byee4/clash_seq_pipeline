@@ -1,0 +1,3 @@
+@SQ	SN:K00180:778:HYGGKBBXX:3:1117:30949:27725_CACTCCTCAA#1	LN:55
+@PG	ID:bowtie2	PN:bowtie2	VN:2.2.6	CL:"/projects/ps-yeolab/software/bowtie2/bowtie2-2.2.6/bowtie2-align-s --wrapper basic-0 -f --end-to-end -D 20 -R 3 -N 1 -L 8 -p 8 -k 15 --np 0 --n-ceil 5,1 -x reads_bowtie_index_w_buffer -S reverse_miR_alignments_w_buffer.sam -U ../reference/hsa_mature.T.repeat-unmapped.fa"
+hsa-miR-21-5p	256	K00180:778:HYGGKBBXX:3:1117:30949:27725_CACTCCTCAA#1	6	1	22M	*	0	0	TAGCTTATCAGACTGATGTTGA	IIIIIIIIIIIIIIIIIIIIII	AS:i:0	XS:i:0	XN:i:0	XM:i:0	XO:i:0	XG:i:0	NM:i:0	MD:Z:22	YT:Z:UU

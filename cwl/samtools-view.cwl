@@ -177,11 +177,29 @@ inputs:
     inputBinding:
       position: 2
       prefix: -o
+      valueFrom: |
+        ${
+          if (inputs.output_name == "") {
+            return inputs.input.nameroot + ".bam";
+          }
+          else {
+            return inputs.output_name;
+          }
+        }
+    default: ""
 outputs:
   output:
     type: File
     outputBinding:
-      glob: $(inputs.output_name)
+      glob: |
+        ${
+          if (inputs.output_name == "") {
+            return inputs.input.nameroot + ".bam";
+          }
+          else {
+            return inputs.output_name;
+          }
+        }
 
 baseCommand: [samtools, view]
 

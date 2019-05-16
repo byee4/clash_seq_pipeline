@@ -23,23 +23,19 @@ inputs:
   trimfirst_overlap_length:
     type: string
   trimagain_overlap_length:
+    type: string  
+    
+  dataset_name:
     type: string
-  # g_adapters:
-  #   type: File
-  # g_adapters_default:
-  #   type: File
-  a_adapters:
-    type: File
-  # a_adapters_default:
-  #   type: File
-  # A_adapters:
-  #   type: File
+  species: 
+    type: string
+    
   read1:
     type: File
   read_name:
     type: string
-  dataset_name:
-    type: string
+  a_adapters:
+    type: File
     
   mirna_fasta:
     type: File
@@ -47,17 +43,18 @@ inputs:
     type: string
   bowtie_genome_directory:
     type: Directory
-
+  speciesGenomeDir:
+    type: Directory
+  chrom_sizes:
+    type: File
+    
   read_idx_name:
     type: string
   reverse_aligned_tsv:
     type: string
-  genome_aligned_tsv:
+  genome_aligned_sam:
     type: string
     doc: "seed based alignments (l=8, n=2)"
-  genome_aligned_tsv_e2e:
-    type: string
-    doc: "end-to-end alignments (v=3)"
     
   ## Default trim params ##
   sort_names:
@@ -84,7 +81,16 @@ inputs:
   v:
     type: int
     default: 3
-
+  S:
+    type: boolean
+    default: true
+    
+  ## samtools view params ##
+  
+  isbam:
+    type: boolean
+    default: true
+    
 outputs:
 
   X_output_trim_first:
@@ -94,12 +100,12 @@ outputs:
     type: File
     outputSource: X_trim/output_trim_report
 
-  X_output_trim_again:
-    type: File[]
-    outputSource: step_gzip_sort_X_trim_again/gzipped
-  X_output_trim_again_metrics:
-    type: File
-    outputSource: X_trim_again/output_trim_report
+  # X_output_trim_again:
+  #   type: File[]
+  #   outputSource: step_gzip_sort_X_trim_again/gzipped
+  # X_output_trim_again_metrics:
+  #   type: File
+  #   outputSource: X_trim_again/output_trim_report
 
   read1_fasta:
     type: File
@@ -116,7 +122,11 @@ outputs:
   mir_alignments:
     type: File
     outputSource: step_map_mirs/output
-
+  
+  mir_alignments_filtered:
+    type: File
+    outputSource: step_filter_bowtie_output/filtered_bowtie_tsv
+    
   chimeric_alignment_candidates:
     type: File
     outputSource: step_find_chimeric_candidates/chimeric_candidates_file
@@ -125,14 +135,42 @@ outputs:
     type: File
     outputSource: step_find_chimeric_candidates/metrics_file
 
-  genome_alignments:
+  genome_alignments_bowtie:
     type: File
     outputSource: step_map_chimeric_seqs_to_genome/output
   
-  genome_alignments_e2e:
+  genome_alignments_star:
     type: File
-    outputSource: step_map_chimeric_seqs_to_genome_e2e/output
-
+    outputSource: step_map_chimeric_seqs_to_genome_star/aligned
+    
+  genome_alignments_star_metrics:
+    type: File
+    outputSource: step_map_chimeric_seqs_to_genome_star/mappingstats
+  
+  genome_alignments_star_unmapped:
+    type: File
+    outputSource: step_map_chimeric_seqs_to_genome_star/output_map_unmapped_fwd
+    
+  genome_alignments_star_settings:
+    type: File
+    outputSource: step_map_chimeric_seqs_to_genome_star/starsettings
+  
+  genome_alignments_sorted_bam:
+    type: File
+    outputSource: step_samtools_sort/output_sort_bam
+    
+  genome_alignments_rmdup_bam:
+    type: File
+    outputSource: step_dedup/output_barcodecollapsese_bam
+  
+  genome_alignments_rmdup_metrics:
+    type: File
+    outputSource: step_dedup/output_barcodecollapsese_metrics
+  
+  genome_alignments_bed_graph:
+    type: File
+    outputSource: step_genome_coverage/bedgraph_file
+    
 steps:
 
 ###########################################################################
@@ -170,31 +208,32 @@ steps:
     out:
       - gzipped
       
-  X_trim_again:
-    run: trim_se.cwl
-    in:
-      input_trim: X_trim/output_trim
-      input_trim_overlap_length: trimagain_overlap_length
-      input_trim_a_adapters: get_a_adapters/output
-      times: trim_times
-      error_rate: trim_error_rate
-    out: [output_trim, output_trim_report]
+  # X_trim_again:
+  #   run: trim_se.cwl
+  #   in:
+  #     input_trim: X_trim/output_trim
+  #     input_trim_overlap_length: trimagain_overlap_length
+  #     input_trim_a_adapters: get_a_adapters/output
+  #     times: trim_times
+  #     error_rate: trim_error_rate
+  #   out: [output_trim, output_trim_report]
   
   A_sort_trimmed_fastq:
     run: fastqsort.cwl
     scatter: input_fastqsort_fastq
     in:
-      input_fastqsort_fastq: X_trim_again/output_trim
+      # input_fastqsort_fastq: X_trim_again/output_trim
+      input_fastqsort_fastq: X_trim/output_trim
     out:
       [output_fastqsort_sortedfastq]
       
-  step_gzip_sort_X_trim_again:
-    run: gzip.cwl
-    scatter: input
-    in:
-      input: A_sort_trimmed_fastq/output_fastqsort_sortedfastq
-    out:
-      - gzipped
+  # step_gzip_sort_X_trim_again:
+  #   run: gzip.cwl
+  #   scatter: input
+  #   in:
+  #     input: A_sort_trimmed_fastq/output_fastqsort_sortedfastq
+  #   out:
+  #     - gzipped
       
 ###########################################################################
 # Collapse reads and reverse-map miRs
@@ -218,6 +257,12 @@ steps:
       input_file: step_fastq_to_fasta/output_fasta_file
     out:
       - collapsed_file
+
+  # step_map_repeats:
+  #   run:
+  #   in:
+  #   out:
+  #     - 
 
   step_index_reads:
     run: bowtie-build.cwl
@@ -250,46 +295,101 @@ steps:
     out:
       - output
       - output_bowtie_log
-
+  
+  step_filter_bowtie_output:
+    run: filter_bowtie_results.cwl
+    in:
+      bowtie_align: step_map_mirs/output
+    out:
+      - filtered_bowtie_tsv
+      
   step_find_chimeric_candidates:
     run: find_candidate_chimeric_seqs_from_mir_alignments.cwl
     in:
-      bowtie_align: step_map_mirs/output
+      bowtie_align: step_filter_bowtie_output/filtered_bowtie_tsv
       fa_file: step_fastq_to_fasta/output_fasta_file
     out:
       - chimeric_candidates_file
       - metrics_file
-
+      
+  ### Map chimeric candidates to genome with Bowtie ###
+  # We may abandon this to use STAR instead.
+  
   step_map_chimeric_seqs_to_genome:
+    doc: "Map chimeric candidates to genome with Bowtie."
     run: bowtie-genome.cwl
     in:
       n: n
       l: l
       e: e
+      sam: S
       ebwt: bowtie_genome_prefix
       bowtie_db: bowtie_genome_directory
       filelist:
         source: step_find_chimeric_candidates/chimeric_candidates_file
         valueFrom: ${return [ self ];}
-      filename: genome_aligned_tsv
+      filename: genome_aligned_sam
     out:
       - output
       - output_bowtie_log
   
-  step_map_chimeric_seqs_to_genome_e2e:
-    run: bowtie-genome.cwl
+  ### Map chimeric candidates to genome with STAR ###
+  # Deprecating the Bowtie mapper in favor of this one. 
+  
+  step_map_chimeric_seqs_to_genome_star:
+    doc: "Map chimeric candidates to genome with STAR. This is the current aligner we'll be using."
+    run: star-genome.cwl
     in:
-      v: v
-      ebwt: bowtie_genome_prefix
-      bowtie_db: bowtie_genome_directory
-      filelist:
+      readFilesIn: 
         source: step_find_chimeric_candidates/chimeric_candidates_file
-        valueFrom: ${return [ self ];}
-      filename: genome_aligned_tsv_e2e
+        valueFrom: ${ return [ self ]; }
+      genomeDir: speciesGenomeDir
+    out: [
+      aligned,
+      output_map_unmapped_fwd,
+      starsettings,
+      mappingstats
+    ]
+  
+  ### We might not need this if we map with STAR? ###
+  # step_sam_to_bam:
+  #   run: samtools-view.cwl
+  #   in:
+  #     isbam: isbam
+  #     input: step_map_chimeric_seqs_to_genome/output
+  #   out:
+  #     - output
+     
+  step_samtools_sort:
+    run: sort.cwl
+    in:
+      input_sort_bam: step_map_chimeric_seqs_to_genome_star/aligned
     out:
-      - output
-      - output_bowtie_log
-
+      - output_sort_bam
+  
+  step_samtools_index:
+    run: samtools-index.cwl
+    in:
+      alignments: step_samtools_sort/output_sort_bam
+    out: 
+      - alignments_with_index
+    
+  step_dedup:
+    run: barcodecollapse_se.cwl
+    in:
+      input_barcodecollapsese_bam: step_samtools_index/alignments_with_index
+    out:
+      - output_barcodecollapsese_bam
+      - output_barcodecollapsese_metrics
+  
+  step_genome_coverage:
+    run: genomeCoverageBed.cwl
+    in:
+      input_bam: step_dedup/output_barcodecollapsese_bam
+      chrom_sizes: chrom_sizes
+    out:
+      - bedgraph_file
+      
 doc: |
   This workflow takes in appropriate trimming params and demultiplexed reads,
   and performs the following steps in order: trimx1, trimx2, fastq-sort, filter repeat elements, fastq-sort, genomic mapping, sort alignment, index alignment, namesort, PCR dedup, sort alignment, index alignment

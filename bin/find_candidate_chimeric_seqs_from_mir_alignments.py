@@ -4,10 +4,20 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 import pandas as pd
+import pysam
 import sys
 from collections import defaultdict, OrderedDict
 
 import argparse
+
+
+def revcomp(seq):
+    new_seq = ""
+    translation_dict = {'A':'T', 'C':'G', 'G':'C', 'T':'A', 'N':'N'}
+    for character in reversed(list(seq)):
+        new_seq = new_seq + translation_dict[character.upper()]
+    return new_seq
+
 
 def get_reference_seq_from_query(row):
     """
@@ -57,10 +67,52 @@ def get_reference_seq_from_query(row):
             assert qseq[pos0base] == query
         except AssertionError:
             print(qseq, strand, pos0base, ref, query)
+    
+    if strand == '+':
+        true_qseq = qseq
+    elif strand == '-':
+        true_qseq = revcomp(qseq)
 
-    return ref_name, rseq, strand, mir
+    
+    return ref_name, rseq, strand, mir, true_qseq
 
 
+def get_reference_seq_from_sam_alignedsegment(aligned_segment):
+    """
+    From a pysam.AlignedSegment object, return the reference (read) sequence. 
+    
+    ** Expects the segment to be aligned to a reference, otherwise it will exit **
+    
+    For eCLASH, 
+     reference = read
+     query = miR
+     
+    Bowtie2 outputs are formatted as a standard SAM file (which must include MD tags!)
+    :param aligned_segment: pysam.AlignedSegment
+        an AlignedSegment object that contains read mapping information.
+    :return ref_name: string
+        reference name (if we are reverse-mapping miRs, this is the read name)
+    :return rseq: string
+        reference sequence, after accounting for mismatch/mutations in query
+    :return strand: character
+        positive or negative strand
+    """
+    
+    ref_name = aligned_segment.reference_name
+    try:
+        ref_seq = aligned_segment.get_reference_sequence().upper()
+    except ValueError:
+        print(aligned_segment)
+        sys.exit(1)
+    mir = aligned_segment.query_name
+    if aligned_segment.is_reverse:
+        strand = "-"
+    else:
+        strand = "+"
+    
+    return ref_name, ref_seq, strand, mir
+        
+        
 def get_rnames_and_rseq_fragments_from_bowtie_output(fn):
     """
     From a bowtie output tsv file, return the reference (read) sequence 
@@ -79,21 +131,63 @@ def get_rnames_and_rseq_fragments_from_bowtie_output(fn):
     """
     rnames = defaultdict(dict) # {readname:{fragment:read fragment, strand:read strand, mir:miRNA name}}
     metrics = defaultdict(int) # {readname:number of miRs aligned to the read}
-
+    
     with open(fn, 'r') as f:
         for line in f:
-            rname, rseq, strand, mir = get_reference_seq_from_query(line)
+            rname, rseq, strand, mir, true_qseq = get_reference_seq_from_query(line)
 
             # kind of a hack to get around the fasta2collapse.pl appended '#'
             assert rname.count('#') == 1
             rname = rname.split('#')[0]
 
-            rnames[rname] = {"fragment":rseq, "strand":strand, "mir":mir} # may need to change based on read names
+            rnames[rname] = {"fragment":rseq, "strand":strand, "mir":mir, "true_qseq":true_qseq} # may need to change based on read names
             metrics[rname] += 1
 
     metrics = pd.DataFrame(metrics, index=['count']).T
     return rnames, metrics
 
+
+def get_rnames_and_rseq_fragments_from_bowtie2_output(fn):
+    """
+    From a bowtie2 bam file, return the reference (read) sequence 
+    and strand as a dictionary, with the reference name as key.
+    That means duplicate reference names will be collapsed into one.
+
+    :param fn: string
+        path to the bowtie output tsv file
+    :return rnames: defaultdict(dict)
+        dictionary of [readname]:{"fragment":sequence, "strand":strand}
+    :return metrics: pandas.DataFrame()
+        dataframe of read names and the number of times a miR aligned to each.
+        
+        ** This counts both primary and secondary alignments. **
+        
+        Since we are keeping only a single miR per read, this is useful for
+        determining how many miRs aligned to each (read->miR is many-to-many,
+        we are turning that into one-to-many).
+    """
+    rnames = defaultdict(dict) # {readname:{fragment:read fragment, strand:read strand, mir:miRNA name}}
+    metrics = defaultdict(int) # {readname:number of miRs aligned to the read}
+    
+    samfile = pysam.AlignmentFile(fn, "r")
+    for read in samfile:
+        if read.is_unmapped:
+            pass
+        else:
+            rname, rseq, strand, mir = get_reference_seq_from_sam_alignedsegment(read)
+            # kind of a hack to get around the fasta2collapse.pl appended '#'
+            assert rname.count('#') == 1
+            rname = rname.split('#')[0]
+            metrics[rname] += 1
+            
+            # only count the mirs that are primary alignments in rnames
+            if read.is_secondary:
+                pass
+            else:
+                rnames[rname] = {"fragment":rseq, "strand":strand, "mir":mir} # may need to change based on read names
+            
+    metrics = pd.DataFrame(metrics, index=['count']).T
+    return rnames, metrics
 
 def get_name2seq_dict(fa_file, rnames):
     """
@@ -122,8 +216,8 @@ def get_name2seq_dict(fa_file, rnames):
     """
 
     counter = 0 # if it's a very large fasta file, need to measure
-    name2seq_dict = defaultdict(dict) # every {read:sequence}
-    seq2name_dict = defaultdict(str) # every {sequence:read}
+    name2seq_dict = OrderedDict() # every {read:sequence}
+    seq2name_dict = OrderedDict() # every {sequence:read}
     read_names = set(rnames.keys())
     handle = open(fa_file, "rU")
     for record in SeqIO.parse(handle, "fasta"):
@@ -132,7 +226,8 @@ def get_name2seq_dict(fa_file, rnames):
                 "read_fragment":rnames[record.id]["fragment"],
                 "read_sequence":str(record.seq),
                 "strand":rnames[record.id]["strand"],
-                "mir":rnames[record.id]["mir"]
+                "mir":rnames[record.id]["mir"],
+                "true_qseq":rnames[record.id]["true_qseq"]
             }
             name2seq_dict[record.id] = d
             seq2name_dict[record.seq] = record.id
@@ -171,7 +266,7 @@ def add_all_sequences_to_name2seq_dictionary(fa_file, name2seq_dict, seq2name_di
     counter = 0
     all_seqs = set(seq2name_dict.keys())
     handle = open(fa_file, "rU")
-    all_name2seq_dict = OrderedDict(defaultdict(dict))
+    all_name2seq_dict = OrderedDict()
 
 
     for record in SeqIO.parse(handle, "fasta"):
@@ -182,6 +277,7 @@ def add_all_sequences_to_name2seq_dictionary(fa_file, name2seq_dict, seq2name_di
                 "read_sequence":str(record.seq),
                 "strand":name2seq_dict[seq2name_dict[str(record.seq)]]["strand"],
                 "mir":name2seq_dict[seq2name_dict[str(record.seq)]]["mir"],
+                "true_qseq":name2seq_dict[seq2name_dict[str(record.seq)]]["true_qseq"],
             }
             all_name2seq_dict[str(record.id)] = d
         if counter % 100000 == 0:
@@ -210,10 +306,12 @@ def write_candidate_chimeric_targets_to_file(name2seq, min_seq_len):
     l = []
     for rname, d in name2seq.iteritems():
 
-        rseq = d['read_fragment']
+        rseq, offset = trim_n_and_return_leading_offset(d['read_fragment'])
         strand = d['strand']
         fullseq = d['read_sequence']
         mir = d['mir']
+        true_qseq = d['true_qseq']
+        
         try:
             assert fullseq.find(rseq) != -1  # cannot find the sequence, mutation must be wrong.
         except AssertionError:
@@ -221,41 +319,56 @@ def write_candidate_chimeric_targets_to_file(name2seq, min_seq_len):
                 rseq, fullseq
             ))
             sys.exit(1)
-        lo = fullseq[:fullseq.find(rseq)]
-        hi = fullseq[(fullseq.find(rseq) + len(rseq)):]
+        lo = fullseq[:fullseq.find(rseq)+offset]
+        hi = fullseq[(fullseq.find(rseq)+offset + len(rseq)):]
         if strand == "-":
-            downstream_seq = lo
-            upstream_seq = hi
+            upstream_seq = revcomp(hi)
+            downstream_seq = revcomp(lo)
+            rseq = revcomp(rseq)
         elif strand == "+":
-            downstream_seq = hi
             upstream_seq = lo
+            downstream_seq = hi
         else:
             return 1
         if len(downstream_seq) >= min_seq_len:
             metrics[rname]['downstream_pass'] = "yes"
-            l.append(">{}_{}_downstream\n{}\n".format(rname, strand, downstream_seq))
+            l.append(">{}\n{}\n".format(rname, downstream_seq)) # we can also embed up/downstream or strandedness into the read, but for simplicity lets just keep the name
         else:
             metrics[rname]['downstream_pass'] = "no"
         if len(upstream_seq) >= min_seq_len:
             metrics[rname]['upstream_pass'] = "yes"
-            l.append(">{}_{}_upstream\n{}\n".format(rname, strand, upstream_seq))
+            l.append(">{}\n{}\n".format(rname, upstream_seq)) # we can also embed up/downstream or strandedness into the read, but for simplicity lets just keep the name
         else:
             metrics[rname]['upstream_pass'] = "no"
 
-
+        metrics[rname]['mir_alignment_strand'] = strand
         metrics[rname]['upstream'] = upstream_seq
-        metrics[rname]['mir'] = rseq
+        metrics[rname]['mir_aligned_segment'] = rseq
+        metrics[rname]['mir_original_sequence'] = true_qseq
         metrics[rname]['mirname'] = mir
         metrics[rname]['downstream'] = downstream_seq
         metrics[rname]['fullread'] = fullseq
 
     metrics = pd.DataFrame(metrics).T
     metrics = metrics[
-        ['upstream_pass', 'downstream_pass',
-         'upstream', 'mir', 'mirname', 'downstream',
+        ['upstream_pass', 'downstream_pass', 'mir_alignment_strand', 'mirname', 
+         'upstream', 'mir_aligned_segment', 'mir_original_sequence', 'downstream',
          'fullread']
     ]
     return l, metrics
+
+
+def trim_n_and_return_leading_offset(s):
+    """
+    Trims the leading Ns and returns the number of Ns trimmed.
+    Trims the trailing Ns but does not count this number.
+    
+    ** Only trims the leading and trailing Ns, ignores any 
+    inline Ns. **
+    """
+    offset = len(s)-len(s.lstrip('N'))
+    return s.strip('N'), offset
+    
 
 def main():
     parser = argparse.ArgumentParser()
@@ -281,17 +394,29 @@ def main():
         required=False,
         default=18
     )
-
-    # Process arguments
+    parser.add_argument(
+        "--inputfmt",
+        required=False,
+        default="tsv"
+    )
+    ### Process arguments ###
     args = parser.parse_args()
     bowtie_align = args.bowtie_align
     out_file = args.out_file
     fa_file = args.fa_file
     min_seq_len = args.min_seq_len
     metrics_file = args.metrics_file
-
-    # main func
-    rnames, metrics1 = get_rnames_and_rseq_fragments_from_bowtie_output(fn=bowtie_align)
+    input_fmt = args.inputfmt
+    ### main func ###
+        
+    # rnames : 
+    # metrics1 :
+    
+    if input_fmt == "tsv":
+        rnames, metrics1 = get_rnames_and_rseq_fragments_from_bowtie_output(fn=bowtie_align)
+    elif input_fmt == "sam":
+        rnames, metrics1 = get_rnames_and_rseq_fragments_from_bowtie2_output(fn=bowtie_align)
+        
     name2seq_dict, seq2name_dict = get_name2seq_dict(fa_file=fa_file, rnames=rnames)
     
     all_name2seq_dict = add_all_sequences_to_name2seq_dictionary(
@@ -311,7 +436,8 @@ def main():
             o.write(l)
 
     merged_metrics = pd.merge(metrics1, metrics2, how='outer', left_index=True, right_index=True)
+    merged_metrics.sort_index(inplace=True)
     merged_metrics.to_csv(metrics_file, sep='\t')
-
+    
 if __name__ == "__main__":
     main()

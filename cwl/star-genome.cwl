@@ -791,7 +791,7 @@ inputs:
       10000
       int>0: max number of different alignments per read to consider
   outFilterScoreMinOverLread:
-    default: 0.3  ### DEFAULT FOR MAPPING SHORTER READS ?
+    default: 0.66  ### DEFAULT FOR MAPPING SHORTER READS ?
     type: float?
     inputBinding:
       position: 1
@@ -880,7 +880,7 @@ inputs:
 
       '
   outFilterMatchNminOverLread:
-    default: 0.3
+    default: 0.66
     type: float?
     inputBinding:
       position: 1
