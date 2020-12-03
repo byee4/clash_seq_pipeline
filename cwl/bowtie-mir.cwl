@@ -485,7 +485,8 @@ outputs:
   output:
     type: File
     outputBinding:
-      glob: $(inputs.filename)
+      glob: "*.tsv"
+      # glob: $(inputs.filename)
 
   output_bowtie_log:
     type: File

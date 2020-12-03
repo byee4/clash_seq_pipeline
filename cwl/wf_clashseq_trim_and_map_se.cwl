@@ -207,7 +207,8 @@ steps:
       input: X_trim/output_trim
     out:
       - gzipped
-      
+  
+  ### Trimming twice removes too many reads due to the new adapter. Deprecated step ###
   # X_trim_again:
   #   run: trim_se.cwl
   #   in:
@@ -226,7 +227,8 @@ steps:
       input_fastqsort_fastq: X_trim/output_trim
     out:
       [output_fastqsort_sortedfastq]
-      
+  
+  ### Trimming twice removes too many reads due to the new adapter. Deprecated step ###
   # step_gzip_sort_X_trim_again:
   #   run: gzip.cwl
   #   scatter: input
@@ -257,12 +259,6 @@ steps:
       input_file: step_fastq_to_fasta/output_fasta_file
     out:
       - collapsed_file
-
-  # step_map_repeats:
-  #   run:
-  #   in:
-  #   out:
-  #     - 
 
   step_index_reads:
     run: bowtie-build.cwl
@@ -302,12 +298,28 @@ steps:
       bowtie_align: step_map_mirs/output
     out:
       - filtered_bowtie_tsv
-      
+  
+  ### Replace this with a subworkflow that splits results for better memory performance ###
+  # step_find_chimeric_candidates:
+  #   run: find_candidate_chimeric_seqs_from_mir_alignments.cwl
+  #   in:
+  #     bowtie_align: step_filter_bowtie_output/filtered_bowtie_tsv
+  #     fa_file: step_fastq_to_fasta/output_fasta_file
+  #   out:
+  #     - chimeric_candidates_file
+  #     - metrics_file
+  
   step_find_chimeric_candidates:
-    run: find_candidate_chimeric_seqs_from_mir_alignments.cwl
+    run: wf_find_chimeric_candidates.cwl
     in:
-      bowtie_align: step_filter_bowtie_output/filtered_bowtie_tsv
-      fa_file: step_fastq_to_fasta/output_fasta_file
+      filtered_bowtie_tsv: step_filter_bowtie_output/filtered_bowtie_tsv
+      output_fasta_file: step_fastq_to_fasta/output_fasta_file
+      chimeric_candidates_filename: 
+        source: step_filter_bowtie_output/filtered_bowtie_tsv
+        valueFrom: ${return self.nameroot + ".chimeric_candidates.fa"}
+      chimeric_metrics_filename: 
+        source: step_filter_bowtie_output/filtered_bowtie_tsv
+        valueFrom: ${return self.nameroot + ".metrics"}
     out:
       - chimeric_candidates_file
       - metrics_file
@@ -327,7 +339,7 @@ steps:
       bowtie_db: bowtie_genome_directory
       filelist:
         source: step_find_chimeric_candidates/chimeric_candidates_file
-        valueFrom: ${return [ self ];}
+        valueFrom: ${return [ self ];} # Trick to allow single-end reads
       filename: genome_aligned_sam
     out:
       - output

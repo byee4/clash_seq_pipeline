@@ -6,7 +6,10 @@ class: CommandLineTool
 
 requirements:
 - class: InlineJavascriptRequirement
-
+- class: ResourceRequirement
+  coresMin: 8
+  coresMax: 16
+  
 inputs:
 
   fasta_file:
@@ -32,6 +35,12 @@ inputs:
       position: 1
       prefix: --offrate
     default: 2
+  threads:
+    type: int
+    inputBinding:
+      position: 3
+      prefix: --threads
+    default: 8
     
 outputs:
 
