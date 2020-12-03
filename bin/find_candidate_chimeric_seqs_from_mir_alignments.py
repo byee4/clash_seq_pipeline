@@ -139,7 +139,7 @@ def get_rnames_and_rseq_fragments_from_bowtie_output(fn):
             # kind of a hack to get around the fasta2collapse.pl appended '#'
             assert rname.count('#') == 1
             rname = rname.split('#')[0]
-
+            # This is where the collapse happens.
             rnames[rname] = {"fragment":rseq, "strand":strand, "mir":mir, "true_qseq":true_qseq} # may need to change based on read names
             metrics[rname] += 1
 
@@ -235,6 +235,11 @@ def get_name2seq_dict(fa_file, rnames):
             print("Read {} records".format(counter))
         counter += 1
     handle.close()
+    
+    print("read names length: {}".format(len(read_names)))
+    print("name2seq_dict length: {}".format(len(name2seq_dict.keys())))
+    print("seq2name_dict length: {}".format(len(seq2name_dict.keys())))
+    
     return name2seq_dict, seq2name_dict
 
 
@@ -280,10 +285,11 @@ def add_all_sequences_to_name2seq_dictionary(fa_file, name2seq_dict, seq2name_di
                 "true_qseq":name2seq_dict[seq2name_dict[str(record.seq)]]["true_qseq"],
             }
             all_name2seq_dict[str(record.id)] = d
-        if counter % 100000 == 0:
-            print("Read {} records".format(counter))
+        # if counter % 100000 == 0:
+        #     print("Read {} records".format(counter))
         counter += 1
     handle.close()
+    print("all_name2seq_dict length: {}".format(len(all_name2seq_dict.keys())))
     return all_name2seq_dict
 
 
@@ -305,7 +311,7 @@ def write_candidate_chimeric_targets_to_file(name2seq, min_seq_len):
     metrics = defaultdict(OrderedDict)
     l = []
     for rname, d in name2seq.iteritems():
-
+        to_append = None  # previously we were reporting a 
         rseq, offset = trim_n_and_return_leading_offset(d['read_fragment'])
         strand = d['strand']
         fullseq = d['read_sequence']
@@ -330,17 +336,23 @@ def write_candidate_chimeric_targets_to_file(name2seq, min_seq_len):
             downstream_seq = hi
         else:
             return 1
-        if len(downstream_seq) >= min_seq_len:
-            metrics[rname]['downstream_pass'] = "yes"
-            l.append(">{}\n{}\n".format(rname, downstream_seq)) # we can also embed up/downstream or strandedness into the read, but for simplicity lets just keep the name
-        else:
-            metrics[rname]['downstream_pass'] = "no"
+        
         if len(upstream_seq) >= min_seq_len:
             metrics[rname]['upstream_pass'] = "yes"
-            l.append(">{}\n{}\n".format(rname, upstream_seq)) # we can also embed up/downstream or strandedness into the read, but for simplicity lets just keep the name
+            to_append = ">{}\n{}\n".format(rname, upstream_seq) # we can also embed up/downstream or strandedness into the read, but for simplicity lets just keep the name
         else:
             metrics[rname]['upstream_pass'] = "no"
-
+            
+        if len(downstream_seq) >= min_seq_len:
+            metrics[rname]['downstream_pass'] = "yes"
+            if len(downstream_seq) >= len(upstream_seq):
+                to_append = ">{}\n{}\n".format(rname, downstream_seq) # we can also embed up/downstream or strandedness into the read, but for simplicity lets just keep the name
+        else:
+            metrics[rname]['downstream_pass'] = "no"
+        
+        if to_append is not None:  # In the event of both upstream/downstream portions meeting the length requirements, we prioritize the downstream seq
+            l.append(to_append)
+            
         metrics[rname]['mir_alignment_strand'] = strand
         metrics[rname]['upstream'] = upstream_seq
         metrics[rname]['mir_aligned_segment'] = rseq
@@ -350,6 +362,8 @@ def write_candidate_chimeric_targets_to_file(name2seq, min_seq_len):
         metrics[rname]['fullread'] = fullseq
 
     metrics = pd.DataFrame(metrics).T
+    print("METRICS")
+    print(metrics.head())
     metrics = metrics[
         ['upstream_pass', 'downstream_pass', 'mir_alignment_strand', 'mirname', 
          'upstream', 'mir_aligned_segment', 'mir_original_sequence', 'downstream',
@@ -416,6 +430,13 @@ def main():
         rnames, metrics1 = get_rnames_and_rseq_fragments_from_bowtie_output(fn=bowtie_align)
     elif input_fmt == "sam":
         rnames, metrics1 = get_rnames_and_rseq_fragments_from_bowtie2_output(fn=bowtie_align)
+       
+    if len(rnames.keys()) == 0: # hack to get around dealing with empty files
+        with open(metrics_file, 'w') as f:
+            pass
+        with open(out_file, 'w') as f:
+            pass
+        sys.exit(0)
         
     name2seq_dict, seq2name_dict = get_name2seq_dict(fa_file=fa_file, rnames=rnames)
     
@@ -424,7 +445,8 @@ def main():
         name2seq_dict=name2seq_dict,
         seq2name_dict=seq2name_dict
     )
-
+    
+    
     lines, metrics2 = write_candidate_chimeric_targets_to_file(
         name2seq=all_name2seq_dict,
         min_seq_len=min_seq_len
