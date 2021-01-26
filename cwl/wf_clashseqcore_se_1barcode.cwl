@@ -56,12 +56,18 @@ outputs:
   b1_trimx1_metrics:
     type: File
     outputSource: b1_trim_and_map/X_output_trim_first_metrics
-  # b1_trimx2_fastq:
-  #   type: File[]
-  #   outputSource: b1_trim_and_map/X_output_trim_again
-  # b1_trimx2_metrics:
-  #   type: File
-  #   outputSource: b1_trim_and_map/X_output_trim_again_metrics
+  b1_trimx2_fastq:
+    type: File[]
+    outputSource: b1_trim_and_map/X_output_trim_again
+  b1_trimx2_metrics:
+    type: File
+    outputSource: b1_trim_and_map/X_output_trim_again_metrics
+  b1_trimx_umi_fastq:
+    type: File[]
+    outputSource: b1_trim_and_map/X_output_trim_umi
+  b1_trimx_umi_metrics:
+    type: File
+    outputSource: b1_trim_and_map/X_output_trim_umi_metrics
     
   ### REVERSE MAPPING OUTPUTS ###
 
@@ -113,6 +119,11 @@ outputs:
   b1_genome_alignments_star_bedgraph:
     type: File
     outputSource: b1_trim_and_map/genome_alignments_bed_graph
+  
+  # b1_clipper_peaks:
+  #   type: File
+  #   outputSource: b1_clipper/output_bed
+    
 steps:
 
 ###########################################################################
@@ -137,7 +148,6 @@ steps:
         default: "1"
       trimagain_overlap_length:
         default: "5"
-      
       dataset_name: demultiplex/dataset_name
       species: species
       
@@ -180,6 +190,10 @@ steps:
     out: [
       X_output_trim_first,
       X_output_trim_first_metrics,
+      X_output_trim_again,
+      X_output_trim_again_metrics,
+      X_output_trim_umi,
+      X_output_trim_umi_metrics,
       read1_fasta,
       collapsed_read1_fasta,
       read_idx,
@@ -196,10 +210,17 @@ steps:
       genome_alignments_rmdup_bam,
       genome_alignments_rmdup_metrics,
       genome_alignments_bed_graph
-      # X_output_trim_again,
-      # X_output_trim_again_metrics,
     ]
-
+    
+  ### We will be using the standard eCLIP clipper peak clusters instead of this ###
+  # b1_clipper:
+  #   run: clipper.cwl
+  #   in: 
+  #     species: species
+  #     bam: b1_trim_and_map/genome_alignments_rmdup_bam
+  #   out: [
+  #     output_bed
+  #   ]
 
 ###########################################################################
 # Downstream (candidate for merging with main pipeline)

@@ -1,0 +1,27 @@
+#!/usr/bin/env eCLASH_singleend_singlethreaded
+## eclash
+## wf_clashseqcore_pe_2barcodes.cwl
+
+dataset: eCLASHpilot
+
+species: hg19
+
+read:
+  read1:
+    class: File
+    path: inputs/293T_4kB_gel_S4_L003_R1_001.fastq.gz
+  adapters:
+    class: File
+    path: inputs/Ril19_adapters_new.fasta
+  name: 4kB_gel
+
+mirna_fasta:
+  class: File
+  path: inputs/hsa_mature.T.fa
+
+bowtie_genome_prefix: hg19
+
+bowtie_genome_directory:
+  class: Directory
+  path: inputs/hg19
+

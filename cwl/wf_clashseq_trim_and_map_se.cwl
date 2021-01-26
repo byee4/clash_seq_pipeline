@@ -23,7 +23,7 @@ inputs:
   trimfirst_overlap_length:
     type: string
   trimagain_overlap_length:
-    type: string  
+    type: string
     
   dataset_name:
     type: string
@@ -90,6 +90,14 @@ inputs:
   isbam:
     type: boolean
     default: true
+  
+  # cores:
+  #   type: int
+  #   default: 4
+  
+  hard_trim_length:
+    type: int
+    default: -9
     
 outputs:
 
@@ -99,14 +107,28 @@ outputs:
   X_output_trim_first_metrics:
     type: File
     outputSource: X_trim/output_trim_report
+  
+  X_output_trim_umi:
+    type: File[]
+    outputSource: step_gzip_trim_umi/gzipped
+  X_output_trim_umi_metrics:
+    type: File
+    outputSource: X_trim_umi/output_trim_report
+    
+  X_output_trim_again:
+    type: File[]
+    outputSource: step_gzip_sort_X_trim_again/gzipped
+  X_output_trim_again_metrics:
+    type: File
+    outputSource: X_trim_again/output_trim_report
 
-  # X_output_trim_again:
-  #   type: File[]
-  #   outputSource: step_gzip_sort_X_trim_again/gzipped
-  # X_output_trim_again_metrics:
-  #   type: File
-  #   outputSource: X_trim_again/output_trim_report
-
+  X_output_trim_umi:
+    type: File[]
+    outputSource: step_gzip_trim_umi/gzipped
+  X_output_trim_umi_metrics:
+    type: File
+    outputSource: X_trim_umi/output_trim_report
+    
   read1_fasta:
     type: File
     outputSource: step_fastq_to_fasta/output_fasta_file
@@ -208,34 +230,55 @@ steps:
     out:
       - gzipped
   
-  ### Trimming twice removes too many reads due to the new adapter. Deprecated step ###
-  # X_trim_again:
-  #   run: trim_se.cwl
-  #   in:
-  #     input_trim: X_trim/output_trim
-  #     input_trim_overlap_length: trimagain_overlap_length
-  #     input_trim_a_adapters: get_a_adapters/output
-  #     times: trim_times
-  #     error_rate: trim_error_rate
-  #   out: [output_trim, output_trim_report]
+  X_trim_again:
+    run: trim_se.cwl
+    in:
+      input_trim: X_trim/output_trim
+      input_trim_overlap_length: trimagain_overlap_length
+      input_trim_a_adapters: get_a_adapters/output
+      times: trim_times
+      error_rate: trim_error_rate
+    out: [output_trim, output_trim_report]
   
   A_sort_trimmed_fastq:
     run: fastqsort.cwl
     scatter: input_fastqsort_fastq
     in:
-      # input_fastqsort_fastq: X_trim_again/output_trim
-      input_fastqsort_fastq: X_trim/output_trim
+      input_fastqsort_fastq: X_trim_again/output_trim
     out:
       [output_fastqsort_sortedfastq]
   
-  ### Trimming twice removes too many reads due to the new adapter. Deprecated step ###
-  # step_gzip_sort_X_trim_again:
-  #   run: gzip.cwl
-  #   scatter: input
-  #   in:
-  #     input: A_sort_trimmed_fastq/output_fastqsort_sortedfastq
-  #   out:
-  #     - gzipped
+  step_gzip_sort_X_trim_again:
+    run: gzip.cwl
+    scatter: input
+    in:
+      input: A_sort_trimmed_fastq/output_fastqsort_sortedfastq
+    out:
+      - gzipped
+      
+  X_trim_umi:
+    run: trim_umi.cwl
+    in:
+      # cores: cores
+      hard_trim_length: hard_trim_length
+      input_trim: X_trim_again/output_trim
+    out: [output_trim, output_trim_report]
+  
+  step_gzip_trim_umi:
+    run: gzip.cwl
+    scatter: input
+    in:
+      input: X_trim_umi/output_trim
+    out:
+      - gzipped
+      
+  A_sort_trimmed_fastq:
+    run: fastqsort.cwl
+    scatter: input_fastqsort_fastq
+    in:
+      input_fastqsort_fastq: X_trim_umi/output_trim
+    out:
+      [output_fastqsort_sortedfastq]
       
 ###########################################################################
 # Collapse reads and reverse-map miRs

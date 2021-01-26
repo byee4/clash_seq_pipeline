@@ -1,0 +1,10 @@
+#!/usr/bin/env find_candidate_chimeric_seqs_from_mir_alignments.cwl
+
+bowtie_align:
+  class: File
+  path: inputs/barcode1_reverse_miR_alignments.tsv
+
+fa_file:
+  class: File
+  path: inputs/SA.OE.X1A.r2.fqTrTr.sorted.fa
+

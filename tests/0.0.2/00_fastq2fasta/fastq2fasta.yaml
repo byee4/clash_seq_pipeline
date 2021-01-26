@@ -1,0 +1,5 @@
+#!/usr/bin/env fastq2fasta.cwl
+
+fastq_file:
+  class: File
+  path: inputs/SRR2413156.short.fastq

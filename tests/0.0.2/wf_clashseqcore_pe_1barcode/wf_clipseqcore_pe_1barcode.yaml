@@ -1,0 +1,33 @@
+#!/usr/bin/env wf_clashseqcore_pe_1barcode.cwl
+## clearclip
+## wf_clearseqcore_se.cwl
+
+dataset: SA
+
+species: hg19
+
+barcodesfasta: 
+  class: File
+  path: inputs/yeolabbarcodes_20170101.fasta
+
+randomer_length: "10"
+
+read:
+  read1:
+    class: File
+    path: inputs/SA_OE_IP_S24_L004_R1_001.fastq.gz
+  read2:
+    class: File
+    path: inputs/SA_OE_IP_S24_L004_R2_001.fastq.gz
+  barcodeids: [X1A, X1B]
+  name: OE
+
+mirna_fasta:
+  class: File
+  path: inputs/hsa_mature.fa
+
+bowtie_genome_prefix: hg19
+
+bowtie_genome_directory:
+  class: Directory
+  path: inputs/hg19

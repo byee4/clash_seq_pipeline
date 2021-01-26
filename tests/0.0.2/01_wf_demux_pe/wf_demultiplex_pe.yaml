@@ -1,0 +1,16 @@
+#!/usr/bin/env wf_demultiplex_pe.cwl
+
+dataset: SA_small
+randomer_length: "10"
+barcodesfasta:
+  class: File
+  path: inputs/yeolabbarcodes_20170101.fasta
+read:
+  read1: 
+    class: File
+    path: inputs/SA_OE_IP_S24_L004_R1_001.fastq.gz
+  read2:
+    class: File
+    path: inputs/SA_OE_IP_S24_L004_R2_001.fastq.gz
+  barcodeids: [X1A,X1B]
+  name: OE_IP

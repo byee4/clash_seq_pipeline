@@ -1,0 +1,17 @@
+#!/usr/bin/env file2directory.cwl
+
+idx_files:
+  - class: File
+    path: inputs/read.1.ebwt
+  - class: File
+    path: inputs/read.2.ebwt
+  - class: File
+    path: inputs/read.3.ebwt
+  - class: File
+    path: inputs/read.4.ebwt
+  - class: File
+    path: inputs/read.rev.1.ebwt
+  - class: File
+    path: inputs/read.rev.2.ebwt
+
+outdir: outputs

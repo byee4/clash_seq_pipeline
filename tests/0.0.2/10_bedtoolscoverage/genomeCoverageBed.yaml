@@ -1,0 +1,10 @@
+#!/usr/bin/env genomeCoverageBed.cwl
+
+input_bam:
+  class: File
+  path: inputs/chimeric_genome_alignments_w_buffer.sorted.rmDup.bam
+  
+chrom_sizes:
+  class: File
+  path: inputs/hg19.chrom.sizes
+

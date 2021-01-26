@@ -1,0 +1,18 @@
+#!/usr/bin/env clearclip
+## clearclip
+## wf_clearseqcore_se.cwl
+
+fastq_file:
+  class: File
+  path: inputs/SRR2413156.fastq
+
+# read_idx_name: read_index
+mirna_fasta:
+  class: File
+  path: inputs/mature.fa
+
+bowtie_genome_prefix: hg19
+
+bowtie_genome_directory:
+  class: Directory
+  path: inputs/hg19

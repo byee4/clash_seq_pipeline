@@ -1,0 +1,5 @@
+#!/usr/bin/env fastq_filter.cwl
+
+input_file:
+  class: File
+  path: inputs/SA_small.OE_IP.X1A.r2.fq.gz

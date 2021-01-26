@@ -1,9 +1,5 @@
 #!/usr/bin/env cwltool
 
-### This is kind of a worthless workflow, ###
-### but to keep consistent with the paired-end ###
-### pipeline, I'm keeping it here. ###
-
 cwlVersion: v1.0
 class: Workflow
 
@@ -13,20 +9,9 @@ requirements:
   - class: ScatterFeatureRequirement      # TODO needed?
   - class: MultipleInputFeatureRequirement
 
-
-#hints:
-#  - class: ex:ScriptRequirement
-#    scriptlines:
-#      - "#!/bin/bash"
-
-
 inputs:
   dataset:
     type: string
-  # randomer_length:
-  #   type: string
-  # barcodesfasta:
-  #   type: File
 
   read:
     type:
@@ -34,52 +19,55 @@ inputs:
       fields:
         read1:
           type: File
+        read2:
+          type: File
         name:
           type: string
         adapters:
           type: File
+        primer:
+          type: string
 outputs:
 
   ### DEMUXED FILES ###
   A_output_demuxed_read1:
     type: File
-    outputSource: gzip_demux/gzipped
+    outputSource: gzip/gzipped
   read_name:
     type: string
-    outputSource: AB_demux/name
+    outputSource: extract_umi/name
   dataset_name:
     type: string
-    outputSource: AB_demux/output_dataset
-  ### TRIM/CUTADAPT PARAMS ###
-
+    outputSource: extract_umi/output_dataset
+  primer:
+    type: string
+    outputSource: extract_umi/primer
 
 steps:
 
 ###########################################################################
 # Upstream
 ###########################################################################
-  AB_demux:
-    run: extract_umi.cwl
+  extract_umi:
+    run: extract_r2_umi.cwl
     in:
-      reads: read
+      read: read
       dataset: dataset
     out: [
-      demuxedAfwd,
-      output_demuxedsingleend_metrics,
+      output_read1,
       output_dataset,
-      name
+      name,
+      primer
     ]
-
+    
 ###########################################################################
 # Downstream
 ###########################################################################
-  gzip_demux:
+  gzip:
     run: gzip.cwl
     in:
-      input: AB_demux/demuxedAfwd
+      input: extract_umi/output_read1
     out:
       - gzipped
         
-doc: |
-  This workflow takes in single-end reads, and performs the following steps in order:
-  demux_se.cwl (does not actually demux for single end, but mirrors the paired-end processing protocol)
+doc: ""

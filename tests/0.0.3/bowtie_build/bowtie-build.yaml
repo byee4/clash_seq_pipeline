@@ -1,0 +1,9 @@
+#!/usr/bin/env bowtie-build.cwl
+
+fasta_file:
+  class: File
+  path: /projects/ps-yeolab4/software/eclash/0.0.3/tests/se/bowtie_build/inputs/eCLASHpilot.EV202.umi.r1.fqTr.fq.sorted.collapsed.fa
+
+index_base_name: test_bowtie
+offrate: 2
+threads: 8

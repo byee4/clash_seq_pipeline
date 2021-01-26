@@ -1,0 +1,7 @@
+#!/usr/bin/env bowtie-build.cwl
+
+fasta_file:
+  class: File
+  path: inputs/SRR2413156.short.fa
+
+index_base_name: read

@@ -1,0 +1,12 @@
+#!/usr/bin/env eCLASH_find_chimeric_candidates
+
+filtered_bowtie_tsv:
+  class: File
+  path: inputs/293T_4kA_direct.reverse_mir_alignments.filtered.tsv
+
+output_fasta_file:
+  class: File
+  path: inputs/eCLASHpilot.293T_4kA_direct.umi.r1.fqTr.fq.sorted.fa
+
+chimeric_candidates_filename: 293T_4kA_direct.reverse_mir_alignments.filtered.chimeric_candidates.fa
+chimeric_metrics_filename: 293T_4kA_direct.reverse_mir_alignments.filtered.chimeric_candidates.metrics

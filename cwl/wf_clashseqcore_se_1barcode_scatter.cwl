@@ -86,16 +86,26 @@ outputs:
   trimx1_metrics:
     type: File[]
     outputSource: wf_clashseqcore_se_1barcode/b1_trimx1_metrics
-  # trimx2_fastq:
-  #   type:
-  #     type: array
-  #     items:
-  #       type: array
-  #       items: File
-  #   outputSource: wf_clashseqcore_se_1barcode/b1_trimx2_fastq
-  # trimx2_metrics:
-  #   type: File[]
-  #   outputSource: wf_clashseqcore_se_1barcode/b1_trimx2_metrics
+  trimx2_fastq:
+    type:
+      type: array
+      items:
+        type: array
+        items: File
+    outputSource: wf_clashseqcore_se_1barcode/b1_trimx2_fastq
+  trimx2_metrics:
+    type: File[]
+    outputSource: wf_clashseqcore_se_1barcode/b1_trimx2_metrics
+  trimx_umi_fastq:
+    type:
+      type: array
+      items:
+        type: array
+        items: File
+    outputSource: wf_clashseqcore_se_1barcode/b1_trimx_umi_fastq
+  trimx_umi_metrics:
+    type: File[]
+    outputSource: wf_clashseqcore_se_1barcode/b1_trimx_umi_metrics
     
   ### REVERSE MAPPING OUTPUTS ###
 
@@ -147,6 +157,9 @@ outputs:
   genome_alignments_star_bedgraph:
     type: File[]
     outputSource: wf_clashseqcore_se_1barcode/b1_genome_alignments_star_bedgraph
+  # clipper_peaks:
+  #   type: File[]
+  #   outputSource: wf_clashseqcore_se_1barcode/b1_clipper_peaks
 steps:
 
 ###########################################################################
@@ -169,6 +182,10 @@ steps:
       b1_demuxed_fastq_r1,
       b1_trimx1_fastq,
       b1_trimx1_metrics,
+      b1_trimx2_fastq,
+      b1_trimx2_metrics,
+      b1_trimx_umi_fastq,
+      b1_trimx_umi_metrics,
       b1_read1_fasta,
       b1_collapsed_read1_fasta,
       b1_read_idx,
@@ -184,9 +201,8 @@ steps:
       b1_genome_alignments_star_sorted_bam,
       b1_genome_alignments_star_rmdup_bam,
       b1_genome_alignments_star_rmdup_metrics,
-      b1_genome_alignments_star_bedgraph
-      # b1_trimx2_fastq,
-      # b1_trimx2_metrics,
+      b1_genome_alignments_star_bedgraph,
+      # b1_clipper_peaks
     ]
       
 
